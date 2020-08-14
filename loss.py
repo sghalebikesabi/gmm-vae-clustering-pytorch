@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+
 def loss_function(data, targets, px_logit, variational_params, latent_samples):
 
     nent = torch.sum(variational_params['qy'] * torch.nn.LogSoftmax(1)(variational_params['qy_logit']), 1)  ###

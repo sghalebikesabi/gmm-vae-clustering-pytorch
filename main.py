@@ -13,9 +13,6 @@ from utils import init_weights, open_file
 
 def parse_args(argv):
     """Parses the arguments for the model.
-    
-    TODO: check back later which of these arguments are actually used in code
-    TODO: incomplete. further arguments will need to be passed (e.g. see __init__function).
     """
     parser = argparse.ArgumentParser(description='VAE MNIST Example')
     parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -24,7 +21,7 @@ def parse_args(argv):
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='enables CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
+    parser.add_argument('--seed', type=int, default=123, metavar='S',
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
@@ -56,10 +53,10 @@ def main(args):
 
     model_params_dict = {
         'cuda': args.cuda,
-        'input_dim': 784, # 784
+        'input_dim': 784, 
         'r_cat_dim': args.r_cat_dim,
-        'z_dim': args.z_dim, # 64
-        'h_dim': 512, # 512
+        'z_dim': args.z_dim, 
+        'h_dim': 512, 
     }
 
     model = VAE(model_params_dict).to(device)

@@ -4,7 +4,7 @@ from torch.nn import functional as F
 
 
 class VAE(torch.nn.Module):
-    """Double Encoded VAE with GMM prior where each r has one layer."""
+    """VAE with GMM prior."""
     
     def __init__(self, model_params_dict):
         super(VAE, self).__init__()
@@ -23,25 +23,17 @@ class VAE(torch.nn.Module):
         self.fc_qyl_qy = torch.nn.Softmax(1)
 
         # q(z|x, y)
-        self.fc_xy_h = nn.ModuleList() 
-        self.fc_hxy_h = nn.ModuleList()
-        self.fc_h_z = nn.ModuleList()
-        self.fc_y_z = nn.ModuleList()
-        self.fc_z_h = nn.ModuleList()
-        self.fc_hz_h = nn.ModuleList()
-        self.fc_h_xl = nn.ModuleList()
-        for i in range(self.r_cat_dim):
-            self.fc_xy_h.append(torch.nn.Linear(self.input_dim + self.r_cat_dim, self.h_dim))
-            self.fc_hxy_h.append(torch.nn.Linear(self.h_dim, self.h_dim))
-            self.fc_h_z.append(torch.nn.Linear(self.h_dim, self.z_dim*2))
-            
-            # p(z|y)
-            self.fc_y_z.append(torch.nn.Linear(self.r_cat_dim, self.z_dim*2))
-
-            # p(x|z)
-            self.fc_z_h.append(torch.nn.Linear(self.z_dim, self.h_dim))
-            self.fc_hz_h.append(torch.nn.Linear(self.h_dim, self.h_dim))
-            self.fc_h_xl.append(torch.nn.Linear(self.h_dim, self.input_dim))
+        self.fc_xy_h = torch.nn.Linear(self.input_dim + self.r_cat_dim, self.h_dim)
+        self.fc_hxy_h = torch.nn.Linear(self.h_dim, self.h_dim)
+        self.fc_h_z = torch.nn.Linear(self.h_dim, self.z_dim*2)
+        
+        # p(z|y)
+        self.fc_y_z = torch.nn.Linear(self.r_cat_dim, self.z_dim*2)
+        
+        # p(x|z)
+        self.fc_z_h = torch.nn.Linear(self.z_dim, self.h_dim)
+        self.fc_hz_h = torch.nn.Linear(self.h_dim, self.h_dim)
+        self.fc_h_xl = torch.nn.Linear(self.h_dim, self.input_dim)
 
     def qy_graph(self, x):
         # q(y|x)
@@ -51,13 +43,13 @@ class VAE(torch.nn.Module):
         qy = self.fc_qyl_qy(qy_logit)
         return qy_logit, qy
 
-    def qz_graph(self, x, y, i):
+    def qz_graph(self, x, y):
         # q(z|x, y)
         xy = torch.cat([x, y], 1)
 
-        hxy = F.relu(self.fc_xy_h[i](xy))
-        h1 = F.relu(self.fc_hxy_h[i](hxy))
-        z_post = self.fc_h_z[i](h1)
+        hxy = F.relu(self.fc_xy_h(xy))
+        h1 = F.relu(self.fc_hxy_h(hxy))
+        z_post = self.fc_h_z(h1)
         z_mu_post, z_logvar_post = torch.split(z_post, self.z_dim, dim=1) 
         z_std_post = torch.sqrt(torch.exp(z_logvar_post))
 
@@ -66,15 +58,15 @@ class VAE(torch.nn.Module):
 
         return z, z_mu_post, z_logvar_post 
         
-    def decoder(self, z, y, i):
+    def decoder(self, z, y):
         # p(z)
-        z_prior = self.fc_y_z[i](y)
+        z_prior = self.fc_y_z(y)
         z_mu_prior, z_logvar_prior = torch.split(z_prior, self.z_dim, dim=1) 
 
         # p(x|z)
-        hz = F.relu(self.fc_z_h[i](z))
-        h2 = F.relu(self.fc_hz_h[i](hz))
-        x_logit = self.fc_h_xl[i](h2)
+        hz = F.relu(self.fc_z_h(z))
+        h2 = F.relu(self.fc_hz_h(hz))
+        x_logit = self.fc_h_xl(h2)
                 
         return z_mu_prior, z_logvar_prior, torch.sigmoid(x_logit)
 
@@ -85,8 +77,8 @@ class VAE(torch.nn.Module):
         z, zm, zv, zm_prior, zv_prior, px = [[None] * 10 for i in range(6)]
         for i in range(10):
             y = y_ + torch.eye(10)[i]
-            z[i], zm[i], zv[i] = self.qz_graph(xb, y, 0)
-            zm_prior[i], zv_prior[i], px[i] = self.decoder(z[i], y, 0)
+            z[i], zm[i], zv[i] = self.qz_graph(xb, y)
+            zm_prior[i], zv_prior[i], px[i] = self.decoder(z[i], y)
         
         latent_samples = {'z': z}
         variational_params = {
